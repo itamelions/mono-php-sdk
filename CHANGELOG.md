@@ -1,6 +1,6 @@
 # Changelog
 
-All notable changes to `itamelions/mono-php` are documented here.  
+All notable changes to `itamelions/mono-php-sdk` are documented here.  
 This project adheres to [Semantic Versioning](https://semver.org/).
 
 ---
@@ -67,7 +67,8 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 - Exceptions: `MonoApiException`, `MonoNotFoundException`
 - PHPUnit 10 test suite
 
-[Unreleased]: https://github.com/itamelions/mono-php/compare/v1.1.0...HEAD
-[1.1.0]: https://github.com/itamelions/mono-php/compare/v1.0.1...v1.1.0
-[1.0.1]: https://github.com/itamelions/mono-php/compare/v1.0.0...v1.0.1
-[1.0.0]: https://github.com/itamelions/mono-php/releases/tag/v1.0.0
+[Unreleased]: https://github.com/itamelions/mono-php-sdk/compare/v1.2.0...HEAD
+[1.2.0]: https://github.com/itamelions/mono-php-sdk/compare/v1.1.0...v1.2.0
+[1.1.0]: https://github.com/itamelions/mono-php-sdk/compare/v1.0.1...v1.1.0
+[1.0.1]: https://github.com/itamelions/mono-php-sdk/compare/v1.0.0...v1.0.1
+[1.0.0]: https://github.com/itamelions/mono-php-sdk/releases/tag/v1.0.0

@@ -1,5 +1,5 @@
 {
-    "name": "itamelions/mono-php",
+    "name": "itamelions/mono-php-sdk",
     "description": "PHP SDK for the Mono open banking API (mandates, accounts, debits, webhooks)",
     "type": "library",
     "license": "MIT",

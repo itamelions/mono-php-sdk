@@ -1,9 +1,9 @@
 # mono-php
 
-[![Latest Version on Packagist](https://img.shields.io/packagist/v/itamelions/mono-php.svg)](https://packagist.org/packages/itamelions/mono-php)
+[![Latest Version on Packagist](https://img.shields.io/packagist/v/itamelions/mono-php-sdk.svg)](https://packagist.org/packages/itamelions/mono-php-sdk)
 [![PHP Version](https://img.shields.io/badge/php-%5E8.1-blue.svg)](https://www.php.net/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
-[![CI](https://github.com/itamelions/mono-php/actions/workflows/ci.yml/badge.svg)](https://github.com/itamelions/mono-php/actions)
+[![CI](https://github.com/itamelions/mono-php-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/itamelions/mono-php-sdk/actions)
 
 Unofficial community PHP SDK for the [Mono](https://mono.co) open banking API.  
 Supports **Mandates**, **Debits**, **Customers**, **Accounts**, **Banks**, and **Webhooks**.  
@@ -21,7 +21,7 @@ No framework coupling — works in any PHP 8.1+ project (Laravel, Symfony, plain
 ## Installation
 
 ```bash
-composer require itamelions/mono-php
+composer require itamelions/mono-php-sdk
 ```
 
 ---
