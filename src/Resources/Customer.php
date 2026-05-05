@@ -11,7 +11,7 @@ class Customer
     /**
      * Create a new customer.
      *
-     * Required params: email, firstName, lastName, phone
+     * Required params: email, first_name, last_name, phone
      * Optional params: identity (type + number, e.g. BVN)
      */
     public function create(array $params): array

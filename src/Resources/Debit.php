@@ -20,12 +20,12 @@ class Debit
     }
 
     /**
-     * GET v3/payments/mandates/{id}/debits/{reference}
+     * GET v3/payments/mandates/{id}/debit/{reference}
      * Fetch a single debit transaction by its reference.
      */
     public function fetch(string $mandateId, string $reference): array
     {
-        return $this->client->call('GET', "v3/payments/mandates/{$mandateId}/debits/{$reference}");
+        return $this->client->call('GET', "v3/payments/mandates/{$mandateId}/debit/{$reference}");
     }
 
     /**

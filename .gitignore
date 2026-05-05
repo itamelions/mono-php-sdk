@@ -4,6 +4,9 @@
 # Environment files (may contain secrets)
 .env
 
+# Sandbox smoke-test (contains hardcoded API keys — keep off VCS)
+sandbox_test.php
+
 # PHPUnit cache
 .phpunit.cache/
 .phpunit.result.cache

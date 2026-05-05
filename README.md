@@ -35,11 +35,11 @@ $mono = new Mono($_ENV['MONO_SECRET_KEY']);
 
 // Create a customer
 $customer = $mono->customer()->create([
-    'email'     => 'john@example.com',
-    'firstName' => 'John',
-    'lastName'  => 'Doe',
-    'phone'     => '+2348000000000',
-    'identity'  => ['type' => 'bvn', 'number' => '12345678901'],
+    'email'      => 'john@example.com',
+    'first_name' => 'John',
+    'last_name'  => 'Doe',
+    'phone'      => '+2348000000000',
+    'identity'   => ['type' => 'bvn', 'number' => '12345678901'],
 ]);
 $customerId = $customer['data']['id'];
 
@@ -53,8 +53,8 @@ $initiation = $mono->mandate()->initiate([
     'reference'    => 'your-unique-ref',
     'redirect_url' => 'https://yourapp.com/mandate/callback',
     'customer'     => ['id' => $customerId],
-    'start_date'   => '2026-01-01 00:00:00',
-    'end_date'     => '2031-01-01 00:00:00',
+    'start_date'   => '2026-01-01',           // Mono interprets bare dates as midnight UTC
+    'end_date'     => '2031-01-01',
 ]);
 
 $monoUrl = $initiation['data']['mono_url'];
@@ -120,6 +120,12 @@ $mono->mandate()->cancel(string $mandateId): array
 $mono->mandate()->balanceCheck(string $mandateId, ?int $amountInKobo = null): array
 ```
 
+> **E-mandate / Sweep activation delay:** Do not call `charge()` until you receive the `events.mandates.ready` webhook. After a customer approves a sweep or e-mandate, Mono requires up to 3 hours before the mandate is ready to debit. Calling `charge()` before `ready` fires will return a Mono API error.
+>
+> **Amounts:** All `amount` values must be in the **lowest denomination** of the account currency — kobo for NGN (100 kobo = ₦1). Pass `500000` for ₦5,000, not `5000`.
+>
+> **Dates:** `start_date` and `end_date` accept `Y-m-d` strings (e.g. `'2026-01-01'`). Mono interprets them as **midnight UTC**. If your application runs in a non-UTC timezone, use UTC-based date logic to avoid off-by-one errors on the mandate start or expiry day.
+
 ### Debit
 
 ```php
@@ -151,13 +157,13 @@ use Mono\Exceptions\MonoApiException;
 
 $webhook = new Webhook($_ENV['MONO_WEBHOOK_SECRET']);
 
-$webhook->on('mandate_created', function (array $data) {
+$webhook->on('events.mandates.created', function (array $data) {
     // persist $data or enqueue a job
     echo "Mandate created: " . $data['id'];
 });
 
-$webhook->on('debit_successful', function (array $data) {
-    echo "Debit succeeded: " . $data['reference'];
+$webhook->on('events.mandates.debit.successful', function (array $data) {
+    echo "Debit succeeded: " . $data['reference_number'];
 });
 
 // Catch-all — receives every event
@@ -184,16 +190,44 @@ try {
 $isValid = $webhook->verifySignature($rawBody, $sigHeader); // bool
 ```
 
+### Idempotency
+
+Mono may retry unacknowledged webhook deliveries up to 25 times over 48 hours. Always deduplicate on `event_id` **before** calling `process()` to avoid double-processing:
+
+```php
+$rawBody   = file_get_contents('php://input');
+$sigHeader = $_SERVER['HTTP_MONO_WEBHOOK_SECRET'] ?? '';
+
+$preview = json_decode($rawBody, true);
+$eventId = $preview['event_id'] ?? null;
+
+if ($eventId && YourCache::has($eventId)) {
+    http_response_code(200);
+    exit; // already handled
+}
+
+$webhook->process($rawBody, $sigHeader);
+
+if ($eventId) {
+    YourCache::put($eventId, true, ttl: 86400);
+}
+```
+
 ### Supported webhook events (non-exhaustive)
 
 | Event | Description |
 |---|---|
-| `mandate_created` | A new mandate has been authorised |
-| `mandate_paused` | A mandate was paused |
-| `mandate_reinstated` | A paused mandate was reinstated |
-| `mandate_cancelled` | A mandate was cancelled |
-| `debit_successful` | A debit transaction succeeded |
-| `debit_failed` | A debit transaction failed |
+| `events.mandates.created` | Mandate initiated; awaiting customer approval |
+| `events.mandates.approved` | Customer approved the mandate |
+| `events.mandates.ready` | Mandate ready to debit — **wait for this before calling `charge()`** |
+| `events.mandates.rejected` | Mandate was rejected |
+| `events.mandate.action.pause` | Mandate was paused |
+| `events.mandate.action.reinstate` | Paused mandate was reinstated |
+| `events.mandate.action.cancel` | Mandate was cancelled |
+| `events.mandates.expired` | Mandate has passed its end date |
+| `events.mandates.debit.processing` | Debit pending NIBSS confirmation |
+| `events.mandates.debit.successful` | Debit succeeded |
+| `events.mandates.debit.failed` | Debit failed |
 
 ---
 

@@ -77,11 +77,11 @@ class WebhookTest extends TestCase
         $webhook  = new Webhook(self::SECRET);
         $received = null;
 
-        $webhook->on('mandate_created', function (array $data) use (&$received) {
+        $webhook->on('events.mandates.created', function (array $data) use (&$received) {
             $received = $data;
         });
 
-        $body = json_encode(['event' => 'mandate_created', 'data' => ['id' => 'mmc_abc']]);
+        $body = json_encode(['event' => 'events.mandates.created', 'data' => ['id' => 'mmc_abc']]);
         $sig  = $this->makeSignature($body);
 
         $webhook->process($body, $sig);
@@ -102,14 +102,14 @@ class WebhookTest extends TestCase
             $receivedData  = $data;
         });
 
-        $body = json_encode(['event' => 'debit_successful', 'data' => ['reference' => 'ref-001']]);
+        $body = json_encode(['event' => 'events.mandates.debit.successful', 'data' => ['reference' => 'ref-001']]);
         $sig  = $this->makeSignature($body);
 
         $webhook->process($body, $sig);
 
         $this->assertNotNull($receivedData);
         $this->assertIsArray($receivedData);
-        $this->assertEquals('debit_successful', $receivedEvent);
+        $this->assertEquals('events.mandates.debit.successful', $receivedEvent);
         $this->assertEquals('ref-001', $receivedData['reference']);
     }
 
@@ -119,14 +119,14 @@ class WebhookTest extends TestCase
         $specificCalled = false;
         $wildcardCalled = false;
 
-        $webhook->on('mandate_paused', function (array $data) use (&$specificCalled) {
+        $webhook->on('events.mandate.action.pause', function (array $data) use (&$specificCalled) {
             $specificCalled = true;
         });
         $webhook->on('*', function (string $event, array $data) use (&$wildcardCalled) {
             $wildcardCalled = true;
         });
 
-        $body = json_encode(['event' => 'mandate_paused', 'data' => ['id' => 'mmc_x']]);
+        $body = json_encode(['event' => 'events.mandate.action.pause', 'data' => ['id' => 'mmc_x']]);
         $sig  = $this->makeSignature($body);
 
         $webhook->process($body, $sig);
@@ -185,10 +185,10 @@ class WebhookTest extends TestCase
         $webhook = new Webhook(self::SECRET);
         $count   = 0;
 
-        $webhook->on('debit_successful', function () use (&$count) { $count++; });
-        $webhook->on('debit_successful', function () use (&$count) { $count++; });
+        $webhook->on('events.mandates.debit.successful', function () use (&$count) { $count++; });
+        $webhook->on('events.mandates.debit.successful', function () use (&$count) { $count++; });
 
-        $body = json_encode(['event' => 'debit_successful', 'data' => []]);
+        $body = json_encode(['event' => 'events.mandates.debit.successful', 'data' => []]);
         $sig  = $this->makeSignature($body);
 
         $webhook->process($body, $sig);

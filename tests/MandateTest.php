@@ -20,11 +20,8 @@ class MandateTest extends TestCase
 
     protected function setUp(): void
     {
-        $this->mono = new Mono('test_secret_key');
         $this->mockHttp = Mockery::mock(Client::class);
-
-        $reflection = new \ReflectionProperty(Mono::class, 'http');
-        $reflection->setValue($this->mono, $this->mockHttp);
+        $this->mono     = Mono::fake('test_secret_key', $this->mockHttp);
     }
 
     protected function tearDown(): void
@@ -76,8 +73,8 @@ class MandateTest extends TestCase
             'reference'    => 'ref-001',
             'redirect_url' => 'https://example.com/callback',
             'customer'     => ['id' => 'cus_123'],
-            'start_date'   => '2026-01-01 00:00:00',
-            'end_date'     => '2031-01-01 00:00:00',
+            'start_date'   => '2026-01-01',
+            'end_date'     => '2031-01-01',
         ]);
 
         $this->assertArrayHasKey('mono_url', $result['data']);
