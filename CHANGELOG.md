@@ -7,6 +7,41 @@ This project adheres to [Semantic Versioning](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- New resource accessors on `Mono`: `payments()`, `recurringPayments()`, `transfers()` /
+  `moneyOperations()`, `disbursements()`, `lookup()` / `identity()`, `whatsapp()`,
+  `customers()` / `customer()`, `accounts()` / `account()`, `banks()` / `bank()`, `webhooks()`
+- `Mono` constructor now accepts a `webhook_secret` option (used by the `webhooks()` helper)
+- `Mono::callRaw()` — performs a request and returns the raw response body (used for
+  binary endpoints such as CAC status reports and watchlist reports)
+- `Payments\Payment` — one-time payments: `initiate()`, `initiateOneTimePayment()`,
+  `verify()`, `getPayment()`, `list()` (`v2/payments/initiate`, `v2/payments/verify/{reference}`,
+  `v2/payments/transactions`)
+- `Payments\RecurringPayment` — `create()` (hosted, defaults to `recurring-debit`),
+  `createDirect()`, `list()`, `get()`, `pause()`, `resume()` (reinstate), `cancel()`,
+  `balanceCheck()`, `charge()`, `debits()` (`v3/payments/mandates`)
+- `Payments\Transfer` — money operations: `payouts()`, `payoutTransactions()`, `refund()`,
+  `createSubAccount()`, `subAccounts()` (`v2/payments/payouts`, `v2/payments/refund`,
+  `v2/payments/payout/sub-account`)
+- `Payments\Disbursement` — source-account CRUD, `create()` / `createInstant()` /
+  `createScheduled()`, `list()` / `get()`, `trigger()` / `retryDisbursement()` / `cancel()`
+  (transition), and distribution CRUD (`v3/payments/disburse/...`)
+- `Payments\Lookup` — BVN (initiate/verify/fetch), CAC company lookup with
+  shareholders/PSC/secretary/directors/profile/status-report, watchlist screening with
+  batch, audit-log and report endpoints, NIN (+ job polling), TIN, passport, driver's
+  license, address, account number, credit history, mashup and bank list
+- `Payments\WhatsAppPayment` — Owo payments: `userStatus()`, beneficiary link/unlink,
+  beneficiary list/get, fund-request creation (one-time / recurring), fund-request
+  list/get and payments (`owo/v1/...`)
+- `Resources\Customer` — `createIndividual()`, `createBusiness()`, `delete()`,
+  `transactions()`, `linkedAccounts()`
+- `Resources\Account::all()` — list linked accounts (`v2/accounts`)
+- `Resources\Bank` — `coverage()` / `getBankCoverage()` (`v3/institutions`), `nip()`
+  (`v3/lookup/banks`), `lookupAccountNumber()` (`v3/lookup/account-number`)
+- Tests for all new resources: `PaymentTest`, `RecurringPaymentTest`, `TransferTest`,
+  `DisbursementTest`, `LookupTest`, `WhatsAppPaymentTest`, expanded `CustomerTest`,
+  `BankTest`
+
 ---
 
 ## [1.1.0] — 2026-05-05

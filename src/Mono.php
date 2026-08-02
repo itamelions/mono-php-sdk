@@ -13,7 +13,13 @@ use Mono\Resources\Account;
 use Mono\Resources\Bank;
 use Mono\Resources\Customer;
 use Mono\Resources\Debit;
+use Mono\Resources\Disbursement;
+use Mono\Resources\Lookup;
 use Mono\Resources\Mandate;
+use Mono\Resources\Payment;
+use Mono\Resources\RecurringPayment;
+use Mono\Resources\Transfer;
+use Mono\Resources\WhatsAppPayment;
 use Mono\Exceptions\MonoApiException;
 use Mono\Exceptions\MonoConnectionException;
 use Mono\Exceptions\MonoNotFoundException;
@@ -23,6 +29,7 @@ class Mono
 {
     protected Client $http;
     protected string $secretKey;
+    protected string $webhookSecret;
     protected string $baseUrl = 'https://api.withmono.com/';
 
     /**
@@ -31,15 +38,19 @@ class Mono
      *     timeout?: int,
      *     connect_timeout?: int,
      *     max_retries?: int,
+     *     webhook_secret?: string,
      * } $options
      *   timeout         – Total request timeout in seconds (default 30).
      *   connect_timeout – TCP connection timeout in seconds (default 10).
      *   max_retries     – Automatic retries on 429 / 503. Honours the
      *                     Retry-After header when present (default 0 = no retries).
+     *   webhook_secret  – Secret used by the webhooks() accessor to verify
+     *                     incoming HMAC-SHA512 webhook signatures.
      */
     public function __construct(string $secretKey, array $options = [])
     {
-        $this->secretKey = $secretKey;
+        $this->secretKey      = $secretKey;
+        $this->webhookSecret  = (string) ($options['webhook_secret'] ?? '');
 
         $timeout        = (int) ($options['timeout']         ?? 30);
         $connectTimeout = (int) ($options['connect_timeout'] ?? 10);
@@ -108,7 +119,7 @@ class Mono
     }
 
     /**
-     * Low-level HTTP call. Used internally by resource classes.
+     * Low-level HTTP call returning a decoded JSON array.
      *
      * @throws MonoNotFoundException   on 404 responses
      * @throws MonoApiException        on 4xx / 5xx responses or invalid JSON
@@ -116,21 +127,43 @@ class Mono
      */
     public function call(string $method, string $path, array $payload = []): array
     {
+        $response = $this->request($method, $path, $payload);
+        $rawBody  = $response->getBody()->getContents();
+        $decoded  = json_decode($rawBody, true);
+        if ($decoded === null && $rawBody !== '') {
+            throw new MonoApiException(
+                "Mono API returned non-JSON response for {$path}",
+                $response->getStatusCode()
+            );
+        }
+        return $decoded ?? [];
+    }
+
+    /**
+     * Low-level HTTP call returning the raw response body.
+     * Used for endpoints that return binary payloads (e.g. CAC status
+     * reports or watchlist screening reports as PDFs).
+     *
+     * @throws MonoNotFoundException   on 404 responses
+     * @throws MonoApiException        on 4xx / 5xx responses
+     * @throws MonoConnectionException on network-level failures
+     */
+    public function callRaw(string $method, string $path, array $payload = []): string
+    {
+        return $this->request($method, $path, $payload)->getBody()->getContents();
+    }
+
+    /**
+     * Performs the HTTP request and returns the raw response.
+     */
+    private function request(string $method, string $path, array $payload = []): ResponseInterface
+    {
         try {
             $options = [];
             if ($method !== 'GET' && $payload !== []) {
                 $options['json'] = $payload;
             }
-            $response = $this->http->request($method, $path, $options);
-            $rawBody  = $response->getBody()->getContents();
-            $decoded  = json_decode($rawBody, true);
-            if ($decoded === null && $rawBody !== '') {
-                throw new MonoApiException(
-                    "Mono API returned non-JSON response for {$path}",
-                    $response->getStatusCode()
-                );
-            }
-            return $decoded ?? [];
+            return $this->http->request($method, $path, $options);
         } catch (BadResponseException $e) {
             // Covers both 4xx (ClientException) and 5xx (ServerException).
             $statusCode = $e->getResponse()->getStatusCode();
@@ -154,29 +187,143 @@ class Mono
 
     // ── Resource accessors ───────────────────────────────────────────────────
 
+    /**
+     * Customer management (aliased as customers()).
+     */
     public function customer(): Customer
     {
         return new Customer($this);
     }
 
+    /**
+     * Customer management (plural alias of customer()).
+     */
+    public function customers(): Customer
+    {
+        return new Customer($this);
+    }
+
+    /**
+     * Connected accounts (aliased as accounts()).
+     */
     public function account(): Account
     {
         return new Account($this);
     }
 
+    /**
+     * Connected accounts (plural alias of account()).
+     */
+    public function accounts(): Account
+    {
+        return new Account($this);
+    }
+
+    /**
+     * Direct-debit mandates (recurring payments, lower-level API).
+     */
     public function mandate(): Mandate
     {
         return new Mandate($this);
     }
 
+    /**
+     * Mandate debits.
+     */
     public function debit(): Debit
     {
         return new Debit($this);
     }
 
+    /**
+     * Banks and bank coverage (aliased as banks()).
+     */
     public function bank(): Bank
     {
         return new Bank($this);
+    }
+
+    /**
+     * Banks and bank coverage (plural alias of bank()).
+     */
+    public function banks(): Bank
+    {
+        return new Bank($this);
+    }
+
+    /**
+     * One-time payments (DirectPay).
+     */
+    public function payments(): Payment
+    {
+        return new Payment($this);
+    }
+
+    /**
+     * Recurring payments — friendly wrappers around direct-debit mandates.
+     */
+    public function recurringPayments(): RecurringPayment
+    {
+        return new RecurringPayment($this);
+    }
+
+    /**
+     * Money operations — payouts, refunds and split-payment sub-accounts
+     * (aliased as moneyOperations()).
+     */
+    public function transfers(): Transfer
+    {
+        return new Transfer($this);
+    }
+
+    /**
+     * Money operations (alias of transfers()).
+     */
+    public function moneyOperations(): Transfer
+    {
+        return new Transfer($this);
+    }
+
+    /**
+     * Disburse — source accounts, instant / scheduled disbursements.
+     */
+    public function disbursements(): Disbursement
+    {
+        return new Disbursement($this);
+    }
+
+    /**
+     * Lookup / identity verification (aliased as identity()).
+     */
+    public function lookup(): Lookup
+    {
+        return new Lookup($this);
+    }
+
+    /**
+     * Lookup / identity verification (alias of lookup()).
+     */
+    public function identity(): Lookup
+    {
+        return new Lookup($this);
+    }
+
+    /**
+     * WhatsApp (Owo) payments.
+     */
+    public function whatsapp(): WhatsAppPayment
+    {
+        return new WhatsAppPayment($this);
+    }
+
+    /**
+     * Webhook verification and event dispatch.
+     * Uses the 'webhook_secret' constructor option; an empty secret makes
+     * verifySignature() always return false.
+     */
+    public function webhooks(): Webhook
+    {
+        return new Webhook($this->webhookSecret);
     }
 
     // ── Testing ──────────────────────────────────────────────────────────────

@@ -6,7 +6,7 @@
 [![CI](https://github.com/itamelions/mono-php-sdk/actions/workflows/ci.yml/badge.svg)](https://github.com/itamelions/mono-php-sdk/actions)
 
 Unofficial community PHP SDK for the [Mono](https://mono.co) open banking API.  
-Supports **Mandates**, **Debits**, **Customers**, **Accounts**, **Banks**, and **Webhooks**.  
+Supports **Payments**, **Recurring Payments / Mandates**, **Debits**, **Money Operations**, **Disbursements**, **Customers**, **Accounts**, **Banks**, **Lookup / Identity**, **WhatsApp (Owo)**, and **Webhooks**.  
 No framework coupling — works in any PHP 8.1+ project (Laravel, Symfony, plain PHP, etc.).
 
 ---
@@ -81,13 +81,22 @@ $mono = new Mono(getenv('MONO_SECRET_KEY'));
 
 ## Resource Reference
 
+Resources are accessed via accessor methods on the client. Both singular and plural
+aliases work: `$mono->payments()` / `$mono->payment()`, `$mono->identity()` / `$mono->lookup()`,
+`$mono->transfers()` / `$mono->moneyOperations()`, `$mono->recurringPayments()`.
+
 ### Customer
 
 ```php
 $mono->customer()->create(array $params): array
+$mono->customer()->createIndividual(array $params): array        // alias of create()
+$mono->customer()->createBusiness(array $params): array
 $mono->customer()->update(string $customerId, array $params): array
 $mono->customer()->fetch(string $customerId): array
-$mono->customer()->list(array $query = []): array   // supports: page, limit
+$mono->customer()->list(array $query = []): array               // supports: page, limit
+$mono->customer()->delete(string $customerId): array
+$mono->customer()->transactions(string $customerId, array $query = []): array
+$mono->customer()->linkedAccounts(string $customerId): array
 ```
 
 ### Account
@@ -101,6 +110,7 @@ $mono->account()->transactions(string $accountId, int $limit = 100, array $query
 $mono->account()->identity(string $accountId): array
 $mono->account()->income(string $accountId): array
 $mono->account()->unlink(string $accountId): array
+$mono->account()->all(array $query = []): array                 // list linked accounts
 ```
 
 ### Mandate
@@ -136,11 +146,154 @@ $mono->debit()->fetch(string $mandateId, string $reference): array
 $mono->debit()->all(string $mandateId, array $query = []): array
 ```
 
+### Payments (One-Time)
+
+```php
+// Initiate a one-time payment — defaults to type 'onetime-debit'
+$mono->payments()->initiate(array $params): array
+$mono->payments()->initiateOneTimePayment(array $params): array
+
+$mono->payments()->verify(string $reference): array
+$mono->payments()->getPayment(string $reference): array
+$mono->payments()->list(array $query = []): array
+```
+
+### Recurring Payments
+
+```php
+// Hosted recurring-debit mandate (returns mono_url) — defaults to type 'recurring-debit'
+$mono->recurringPayments()->create(array $params): array
+$mono->recurringPayments()->createRecurringPayment(array $params): array
+
+// Direct mandate creation (v3/payments/mandates)
+$mono->recurringPayments()->createDirect(array $params): array
+
+$mono->recurringPayments()->list(array $query = []): array
+$mono->recurringPayments()->get(string $mandateId): array
+$mono->recurringPayments()->pause(string $mandateId): array
+$mono->recurringPayments()->resume(string $mandateId): array   // reinstate
+$mono->recurringPayments()->cancel(string $mandateId): array
+$mono->recurringPayments()->balanceCheck(string $mandateId, ?int $amountInKobo = null): array
+
+// Charge a recurring mandate
+$mono->recurringPayments()->charge(string $mandateId, array $params): array
+$mono->recurringPayments()->debits(string $mandateId, array $query = []): array
+```
+
+### Money Operations (Transfers)
+
+```php
+$mono->transfers()->payouts(array $query = []): array
+$mono->transfers()->payoutTransactions(string $payoutId, array $query = []): array
+$mono->transfers()->refund(array $params): array
+$mono->transfers()->createSubAccount(array $params): array
+$mono->transfers()->subAccounts(array $query = []): array
+```
+
+### Disbursements
+
+```php
+// Source accounts
+$mono->disbursements()->createSourceAccount(array $params): array
+$mono->disbursements()->updateSourceAccount(string $id, array $params): array
+$mono->disbursements()->deleteSourceAccount(string $id): array
+$mono->disbursements()->sourceAccounts(): array
+$mono->disbursements()->getSourceAccount(string $id): array
+
+// Disbursements — createInstant()/createScheduled() default the 'type' for you
+$mono->disbursements()->create(array $params): array
+$mono->disbursements()->createInstant(array $params): array
+$mono->disbursements()->createScheduled(array $params): array
+$mono->disbursements()->list(array $query = []): array
+$mono->disbursements()->listDisbursements(array $query = []): array
+$mono->disbursements()->get(string $id): array
+$mono->disbursements()->getDisbursement(string $id): array
+
+// Transitions: trigger / cancel
+$mono->disbursements()->trigger(string $id): array
+$mono->disbursements()->retryDisbursement(string $id): array
+$mono->disbursements()->cancel(string $id): array
+
+// Distributions
+$mono->disbursements()->addDistributions(string $disbursementId, array $distributions): array
+$mono->disbursements()->updateDistribution(string $disbursementId, string $distId, array $params): array
+$mono->disbursements()->deleteDistribution(string $disbursementId, string $distId): array
+$mono->disbursements()->distributions(string $disbursementId): array
+$mono->disbursements()->getDistribution(string $disbursementId, string $distId): array
+```
+
 ### Bank
 
 ```php
-$mono->bank()->list(): array
+$mono->bank()->list(): array                                     // v3/banks/list
+$mono->bank()->coverage(array $query = []): array                // v3/institutions
+$mono->bank()->getBankCoverage(array $query = []): array
+$mono->bank()->nip(): array                                      // v3/lookup/banks
+$mono->bank()->lookupAccountNumber(array $params): array         // v3/lookup/account-number
 ```
+
+### Lookup / Identity
+
+```php
+$mono->identity()->lookupBVN(array $params): array               // v2/lookup/bvn/initiate
+$mono->identity()->verifyBVN(array $params): array               // v2/lookup/bvn/verify
+$mono->identity()->fetchBVN(array $params): array                // v2/lookup/bvn/fetch
+
+// CAC company data
+$mono->identity()->lookupCAC(array $query): array
+$mono->identity()->cacShareholders(string $companyId): array
+$mono->identity()->cacPSC(string $companyId): array
+$mono->identity()->cacSecretary(string $companyId): array
+$mono->identity()->cacDirectors(string $companyId): array
+$mono->identity()->cacProfile(string $rcNumber): array
+$mono->identity()->cacStatusReport(string $companyId): string    // raw PDF bytes
+
+// Watchlist screening
+$mono->identity()->watchlist(array $entry): array
+$mono->identity()->watchlistBatch(array $entries): array
+$mono->identity()->watchlistResult(string $id): array
+$mono->identity()->watchlistAuditLog(string $id): array
+$mono->identity()->watchlistReport(string $id): string           // raw PDF bytes
+$mono->identity()->startMonitoring(array $entry): array
+$mono->identity()->stopMonitoring(string $id): array
+
+// Individual verifications
+$mono->identity()->nin(array $params): array                     // v3/lookup/nin
+$mono->identity()->pollNINJob(string $jobId): array              // v3/lookup/nin/{job}/job
+$mono->identity()->verifyTIN(array $params): array               // v3/lookup/tin
+$mono->identity()->verifyPassport(array $params): array          // v3/lookup/passport
+$mono->identity()->verifyDriversLicense(array $params): array    // v3/lookup/driver_license
+$mono->identity()->verifyAddress(array $params): array           // v3/lookup/address
+$mono->identity()->lookupAccountNumber(array $params): array     // v3/lookup/account-number
+$mono->identity()->verifyCreditHistory(string $provider, array $params): array
+$mono->identity()->lookupMashup(array $params): array            // v3/lookup/mashup
+$mono->identity()->banks(): array                                // v3/lookup/banks
+```
+
+> **Friendly aliases** (`verifyCAC`, `lookupNIN`, …) are provided on `$mono->lookup()`.
+
+### WhatsApp (Owo)
+
+```php
+$mono->whatsapp()->userStatus(string $phone): array
+$mono->whatsapp()->linkBeneficiary(array $params): array
+$mono->whatsapp()->unlinkBeneficiary(array $params): array
+$mono->whatsapp()->beneficiaries(): array
+$mono->whatsapp()->getBeneficiary(string $id): array
+
+// Fund requests — createOneTimeFundRequest()/createRecurringFundRequest() default 'type'
+$mono->whatsapp()->createFundRequest(array $params): array
+$mono->whatsapp()->createOneTimeFundRequest(array $params): array
+$mono->whatsapp()->createRecurringFundRequest(array $params): array
+$mono->whatsapp()->createWhatsappPayment(array $params): array   // generic alias
+$mono->whatsapp()->fundRequests(): array
+$mono->whatsapp()->getWhatsappPayment(string $id): array
+$mono->whatsapp()->payments(string $fundRequestId): array
+$mono->whatsapp()->getPayment(string $fundRequestId, string $paymentId): array
+```
+
+> **Binary responses:** `cacStatusReport()` and `watchlistReport()` return raw response
+> bytes (PDF), not decoded JSON.
 
 ---
 
@@ -270,11 +423,17 @@ Tests use **Mockery** to mock the Guzzle HTTP client — no live API calls are m
 
 | Resource | Methods |
 |---|---|
-| Customer | create, update, fetch, list |
-| Account | auth, fetch, transactions, identity, income, unlink |
+| Customer | create, createIndividual, createBusiness, update, fetch, list, delete, transactions, linkedAccounts |
+| Account | auth, fetch, transactions, identity, income, unlink, all |
 | Mandate | initiate, create, fetch, list, pause, reinstate, cancel, balanceCheck |
 | Debit | charge, fetch, all |
-| Bank | list |
+| Payment | initiate, initiateOneTimePayment, verify, getPayment, list |
+| Recurring Payment | create, createRecurringPayment, createDirect, list, get, pause, resume, cancel, balanceCheck, charge, debits |
+| Transfer | payouts, payoutTransactions, refund, createSubAccount, subAccounts |
+| Disbursement | source accounts CRUD, create, createInstant, createScheduled, list, get, trigger, retryDisbursement, cancel, distributions CRUD |
+| Bank | list, coverage, getBankCoverage, nip, lookupAccountNumber |
+| Lookup / Identity | BVN, CAC (incl. status report), watchlist (incl. report), NIN, TIN, passport, driver's license, address, account number, credit history, mashup, banks |
+| WhatsApp (Owo) | userStatus, beneficiaries, fund requests, payments |
 | Webhook | process, verifySignature, on() listener |
 
 ---
@@ -287,6 +446,7 @@ Tests use **Mockery** to mock the Guzzle HTTP client — no live API calls are m
 | `v1.1` | Laravel service provider + facade |
 | `v1.2` | Retry middleware, configurable timeout |
 | `v2.0` | Full Mono Connect (statement, income, identity) |
+| `v2.1` | Payments, Recurring Payments, Money Operations, Disbursements, Lookup/Identity, WhatsApp (Owo) |
 
 ---
 

@@ -60,4 +60,18 @@ class Account
     {
         return $this->client->call('POST', "v2/accounts/{$accountId}/unlink");
     }
+
+    /**
+     * List all accounts linked to your business (the customer's linked accounts).
+     *
+     * @param array $query Optional filters: page, limit, customer, account
+     */
+    public function all(array $query = []): array
+    {
+        $path = 'v2/accounts';
+        if ($query !== []) {
+            $path .= '?' . http_build_query($query);
+        }
+        return $this->client->call('GET', $path);
+    }
 }
